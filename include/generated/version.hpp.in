@@ -1,0 +1,7 @@
+#pragma once
+
+#define CURLING_VERSION_MAJOR @curling_VERSION_MAJOR@
+#define CURLING_VERSION_MINOR @curling_VERSION_MINOR@
+#define CURLING_VERSION_PATCH @curling_VERSION_PATCH@
+
+#define CURLING_VERSION "@curling_VERSION@"
