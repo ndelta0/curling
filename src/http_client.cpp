@@ -6,6 +6,7 @@
 
 #include "version.hpp"
 #include "utils.hpp"
+#include "tracing.hpp"
 
 curling::HttpClient::~HttpClient() {
 	if (easy_handle_ != nullptr) {
@@ -16,10 +17,16 @@ curling::HttpClient::~HttpClient() {
 curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpRequestMessage& request) {
 	assert(easy_handle_ != nullptr && "HttpClient is not initialized");
 
+	auto tracer = tracing::GetTracer();
+	auto span = tracer->StartSpan("Curling Send");
+	[[maybe_unused]] auto scope = tracer->WithActiveSpan(span);
+
 	Uri target;
 	if (base_uri_ && !request.uri.IsRelative()) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "URI must be relative");
 		throw std::invalid_argument("URI must be relative");
 	} else if (!base_uri_ && request.uri.IsRelative()) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "URI must be absolute");
 		throw std::invalid_argument("URI must be absolute");
 	} else if (base_uri_) {
 		target = *base_uri_ + request.uri;
@@ -28,24 +35,32 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	}
 	auto target_str = target.ToString();
 
+	span->SetAttribute("http.authority", target.GetAuthority());
+	span->SetAttribute("http.method", request.method);
+	span->SetAttribute("http.url", target_str);
+
 	auto result = curl_easy_setopt(easy_handle_, CURLOPT_URL, target_str.c_str());
 	if (result != CURLE_OK) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set URL");
 		return {};
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_CUSTOMREQUEST, request.method.c_str());
 	if (result != CURLE_OK) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set method");
 		return {};
 	}
 
 	if (request.headers.HasHeader("User-Agent")) {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_USERAGENT, (*request.headers.GetHeader("User-Agent")).c_str());
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set user agent");
 			return {};
 		}
 	} else {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_USERAGENT, "curling/" CURLING_VERSION);
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set user agent");
 			return {};
 		}
 	}
@@ -57,15 +72,18 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	if (content_length > 0) {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDSIZE, content_length);
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content length");
 			return {};
 		}
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDS, content.data());
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content");
 			return {};
 		}
 	} else {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDSIZE, 0);
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content length");
 			return {};
 		}
 	}
@@ -73,12 +91,14 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	if (request.headers.HasHeader("Connection") && (*request.headers.GetHeader("Connection")) == "close") {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_FORBID_REUSE, 1L);
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set connection");
 			return {};
 		}
 	} else {
 		const_cast<HttpRequestHeaders*>(&request.headers)->SetHeader("Connection", "keep-alive");
 		result = curl_easy_setopt(easy_handle_, CURLOPT_FORBID_REUSE, 0L);
 		if (result != CURLE_OK) {
+			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set connection");
 			return {};
 		}
 	}
@@ -101,6 +121,7 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	result = curl_easy_setopt(easy_handle_, CURLOPT_HTTPHEADER, headers);
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set headers");
 		return {};
 	}
 
@@ -115,12 +136,14 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	});
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set write function");
 		return {};
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_WRITEDATA, &response_body);
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set write data");
 		return {};
 	}
 
@@ -141,29 +164,33 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	});
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set header function");
 		return {};
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_HEADERDATA, &response_headers);
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set header data");
 		return {};
 	}
 
 	result = curl_easy_perform(easy_handle_);
 	curl_slist_free_all(headers);
 	if (result != CURLE_OK) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to perform request");
 		return {};
 	}
 
 	long response_code = 0;
 	result = curl_easy_getinfo(easy_handle_, CURLINFO_RESPONSE_CODE, &response_code);
 	if (result != CURLE_OK) {
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to get response code");
 		return {};
 	}
 
-		HttpResponseMessage	response;
-		response.headers_	= response_headers;
+	span->SetAttribute("http.status_code", std::to_string(response_code));
+
 	HttpResponseMessage response;
 	response.headers_ = response_headers;
 	response.status_code_ = (int) response_code;

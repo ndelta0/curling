@@ -104,11 +104,17 @@ if(CURLING_ENABLE_JSON)
 	list(APPEND COMPILE_DEFS CURLING_HAS_JSON)
 endif()
 
+option(CURLING_ENABLE_TRACING "Enable tracing support" OFF)
+if(CURLING_ENABLE_TRACING)
+	find_package(opentelemetry-cpp CONFIG REQUIRED COMPONENTS api)
+	list(APPEND COMPILE_DEFS CURLING_HAS_TRACING)
+endif()
+
 configure_file("${curling_SOURCE_DIR}/include/generated/version.hpp.in" "${curling_BINARY_DIR}/include/curling/version.hpp" @ONLY)
 
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS "${curling_SOURCE_DIR}/include/*.hpp" "${curling_BINARY_DIR}/include/*.hpp")
 
-set(SOURCE_LIST http_factory.cpp http_client.cpp uri.cpp context.cpp http_response_message.cpp http_headers.cpp http_request_headers.cpp http_response_headers.cpp http_content.cpp utils.cpp utils.hpp http_request_message.cpp)
+set(SOURCE_LIST http_factory.cpp http_client.cpp uri.cpp context.cpp http_response_message.cpp http_headers.cpp http_request_headers.cpp http_response_headers.cpp http_content.cpp utils.cpp utils.hpp http_request_message.cpp tracing.cpp tracing.hpp)
 
 add_library(curling STATIC ${HEADER_LIST} ${SOURCE_LIST})
 
@@ -123,6 +129,10 @@ target_link_libraries(curling PUBLIC CURL::libcurl)
 
 if(CURLING_ENABLE_JSON)
 	target_link_libraries(curling PUBLIC nlohmann_json::nlohmann_json)
+endif()
+
+if(CURLING_ENABLE_TRACING)
+	target_link_libraries(curling PUBLIC opentelemetry-cpp::api)
 endif()
 
 include(GNUInstallDirs)

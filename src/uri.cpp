@@ -149,3 +149,13 @@ curling::Uri curling::Uri::operator+(const curling::Uri& other) const {
 bool curling::Uri::IsAbsoluteNoQueryOrFragment() const {
 	return IsAbsolute() && query.empty() && fragment.empty();
 }
+
+std::string curling::Uri::GetAuthority() const {
+	std::string result = host;
+
+	if (port != 0) {
+		result += ":" + std::to_string(port);
+	}
+
+	return result;
+}
