@@ -7,26 +7,26 @@
 
 namespace curling {
 enum class HttpMethod {
-		kGet,
-		kPost,
-		kPut,
-		kPatch,
-		kDelete,
-		kHead
+	kGet,
+	kPost,
+	kPut,
+	kPatch,
+	kDelete,
+	kHead
 };
 
 struct HttpRequestMessage {
-		HttpRequestMessage() = default;
+	HttpRequestMessage() = default;
 
-		HttpRequestMessage(HttpMethod method, const std::string& uri);
+	HttpRequestMessage(HttpMethod method, const std::string& uri);
 
-		HttpRequestMessage(HttpMethod method, const Uri& uri);
+	HttpRequestMessage(HttpMethod method, const Uri& uri);
 
-		~HttpRequestMessage() = default;
+	~HttpRequestMessage() = default;
 
-		std::string method;
-		Uri uri;
-		std::shared_ptr<HttpContent> content;
-		HttpRequestHeaders headers;
+	std::string method;
+	Uri uri;
+	std::shared_ptr<HttpContent> content;
+	HttpRequestHeaders headers;
 };
 }

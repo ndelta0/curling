@@ -6,4 +6,4 @@ if(@CURLING_ENABLE_JSON@)
     find_dependency(nlohmann_json REQUIRED)
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/curlingConfig.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/curlingConfigVersion.cmake")

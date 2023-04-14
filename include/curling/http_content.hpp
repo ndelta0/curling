@@ -27,130 +27,132 @@ class JsonContent;
 }
 
 class HttpContent {
-	public:
-		HttpContent() = default;
+public:
+	HttpContent() = default;
 
-		~HttpContent() = default;
+	~HttpContent() = default;
 
-		[[nodiscard]] virtual std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const;
+	[[nodiscard]] virtual std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const;
 
-		[[nodiscard]] content::ByteArrayContent ReadAsByteArray() const;
+	[[nodiscard]] content::ByteArrayContent ReadAsByteArray() const;
 
-		[[nodiscard]] content::StringContent ReadAsString() const;
+	[[nodiscard]] content::StringContent ReadAsString() const;
 
-		[[nodiscard]] content::FormUrlEncodedContent ReadAsFormUrlEncoded() const;
+	[[nodiscard]] content::FormUrlEncodedContent ReadAsFormUrlEncoded() const;
 
 #ifdef CURLING_HAS_JSON
-		[[nodiscard]] content::JsonContent ReadAsJson() const;
+
+	[[nodiscard]] content::JsonContent ReadAsJson() const;
+
 #endif
 
-	protected:
-		friend class HttpClient;
+protected:
+	friend class HttpClient;
 
-		std::vector<unsigned char> data_;
+	std::vector<unsigned char> data_;
 };
 
 namespace content {
 class ByteArrayContent : public HttpContent {
-	public:
-		ByteArrayContent() = default;
+public:
+	ByteArrayContent() = default;
 
-		ByteArrayContent(const std::vector<unsigned char>& content); // NOLINT(google-explicit-constructor)
+	ByteArrayContent(const std::vector<unsigned char>& content); // NOLINT(google-explicit-constructor)
 
-		~ByteArrayContent() = default;
+	~ByteArrayContent() = default;
 
-		[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
+	[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
 
-		void SetContent(const std::vector<unsigned char>& content);
+	void SetContent(const std::vector<unsigned char>& content);
 
-		[[nodiscard]] const std::vector<unsigned char>& GetContent() const;
+	[[nodiscard]] const std::vector<unsigned char>& GetContent() const;
 
-		[[nodiscard]] size_t GetSize() const;
+	[[nodiscard]] size_t GetSize() const;
 };
 
 class StringContent : public HttpContent {
-	public:
-		StringContent() = default;
+public:
+	StringContent() = default;
 
-		StringContent(const std::string& content); // NOLINT(google-explicit-constructor)
+	StringContent(const std::string& content); // NOLINT(google-explicit-constructor)
 
-		StringContent(const std::string& content, const std::string& content_type); // NOLINT(google-explicit-constructor)
+	StringContent(const std::string& content, const std::string& content_type); // NOLINT(google-explicit-constructor)
 
-		~StringContent() = default;
+	~StringContent() = default;
 
-		[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
+	[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
 
-		void SetContent(const std::string& content);
+	void SetContent(const std::string& content);
 
-		void SetContentType(const std::string& content_type);
+	void SetContentType(const std::string& content_type);
 
-		[[nodiscard]] const std::string& GetContent() const;
+	[[nodiscard]] const std::string& GetContent() const;
 
-		[[nodiscard]] const std::string& GetContentType() const;
+	[[nodiscard]] const std::string& GetContentType() const;
 
-		[[nodiscard]] size_t GetSize() const;
+	[[nodiscard]] size_t GetSize() const;
 
-	private:
-		std::string data_;
-		std::string content_type_ = "text/plain";
+private:
+	std::string data_;
+	std::string content_type_ = "text/plain";
 };
 
 class FormUrlEncodedContent : public HttpContent {
-	public:
-		FormUrlEncodedContent() = default;
+public:
+	FormUrlEncodedContent() = default;
 
-		FormUrlEncodedContent( // NOLINT(google-explicit-constructor)
-										const std::vector<std::pair<std::string, std::string>>& content);
+	FormUrlEncodedContent( // NOLINT(google-explicit-constructor)
+			const std::vector<std::pair<std::string, std::string>>& content);
 
-		~FormUrlEncodedContent() = default;
+	~FormUrlEncodedContent() = default;
 
-		[[nodiscard]] static FormUrlEncodedContent Parse(const std::string& content);
+	[[nodiscard]] static FormUrlEncodedContent Parse(const std::string& content);
 
-		[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
+	[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
 
-		void SetContent(const std::vector<std::pair<std::string, std::string>>& content);
+	void SetContent(const std::vector<std::pair<std::string, std::string>>& content);
 
-		void AddContent(const std::string& key, const std::string& value);
+	void AddContent(const std::string& key, const std::string& value);
 
-		[[nodiscard]] const std::vector<std::pair<std::string, std::string>>& GetContent() const;
+	[[nodiscard]] const std::vector<std::pair<std::string, std::string>>& GetContent() const;
 
-		[[nodiscard]] size_t GetSize() const;
+	[[nodiscard]] size_t GetSize() const;
 
-	private:
-		std::vector<std::pair<std::string, std::string>> data_;
+private:
+	std::vector<std::pair<std::string, std::string>> data_;
 };
 
 #ifdef CURLING_HAS_JSON
 
 class JsonContent : public HttpContent {
-	public:
-		JsonContent() = default;
+public:
+	JsonContent() = default;
 
-		JsonContent(const nlohmann::json& content); // NOLINT(google-explicit-constructor)
+	JsonContent(const nlohmann::json& content); // NOLINT(google-explicit-constructor)
 
-		template<typename T>
-		JsonContent(const T& content) : data_(content) {} // NOLINT(google-explicit-constructor)
+	template<typename T>
+	JsonContent(const T& content) : data_(content) {} // NOLINT(google-explicit-constructor)
 
-		~JsonContent() = default;
+	~JsonContent() = default;
 
-		[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
+	[[nodiscard]] std::tuple<std::string, size_t, const std::vector<unsigned char>> Serialize() const override;
 
-		void SetContent(const nlohmann::json& content);
+	void SetContent(const nlohmann::json& content);
 
-		template<typename T>
-		void SetContent(const T& content) {
-				data_ = content;
-		}
+	template<typename T>
+	void SetContent(const T& content) {
+		data_ = content;
+	}
 
-		[[nodiscard]] const nlohmann::json& GetContent() const;
+	[[nodiscard]] const nlohmann::json& GetContent() const;
 
-		template<typename T>
-		void GetContent(T& content) const {
-				content = data_;
-		}
+	template<typename T>
+	void GetContent(T& content) const {
+		content = data_;
+	}
 
-	private:
-		nlohmann::json data_;
+private:
+	nlohmann::json data_;
 };
 
 #endif

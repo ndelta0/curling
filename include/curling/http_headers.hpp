@@ -7,21 +7,25 @@
 namespace curling {
 class HttpHeaders {
 public:
-		HttpHeaders() = default;
-		~HttpHeaders() = default;
+	HttpHeaders() = default;
 
-		void SetHeader(const std::string& key, const std::string& value);
-		void RemoveHeader(const std::string& key);
-		void ClearHeaders();
+	~HttpHeaders() = default;
 
-		[[nodiscard]] const std::map<std::string, std::string>& GetHeaders() const;
-		[[nodiscard]] std::optional<const std::string> GetHeader(const std::string& key) const;
+	void SetHeader(const std::string& key, const std::string& value);
 
-		[[nodiscard]] bool HasHeader(const std::string& key) const;
+	void RemoveHeader(const std::string& key);
 
-	protected:
-		[[nodiscard]] static std::string NormalizeKey(const std::string& key);
+	void ClearHeaders();
 
-		std::map<std::string, std::string> headers_;
+	[[nodiscard]] const std::map<std::string, std::string>& GetHeaders() const;
+
+	[[nodiscard]] std::optional<const std::string> GetHeader(const std::string& key) const;
+
+	[[nodiscard]] bool HasHeader(const std::string& key) const;
+
+protected:
+	[[nodiscard]] static std::string NormalizeKey(const std::string& key);
+
+	std::map<std::string, std::string> headers_;
 };
 }

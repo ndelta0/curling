@@ -10,23 +10,25 @@
 
 namespace curling {
 class HttpFactory {
-	public:
-		~HttpFactory();
+public:
+	~HttpFactory();
 
-		std::unique_ptr<HttpClient> CreateClient();
-		std::unique_ptr<HttpClient> CreateClient(const Uri& base_uri);
+	std::unique_ptr<HttpClient> CreateClient();
 
-	private:
-		friend class Context;
-		explicit HttpFactory(CURLSH* share_handle);
+	std::unique_ptr<HttpClient> CreateClient(const Uri& base_uri);
 
-		CURLSH* share_handle_;
-		std::unordered_map<curl_lock_data, std::shared_mutex> share_mutexes_;
+private:
+	friend class Context;
 
-		static void
-		LockCallback(const CURL*, curl_lock_data data, curl_lock_access access,
-		             void* user_ptr);
+	explicit HttpFactory(CURLSH* share_handle);
 
-		static void UnlockCallback(const CURL*, curl_lock_data data, void* user_ptr);
+	CURLSH* share_handle_;
+	std::unordered_map<curl_lock_data, std::shared_mutex> share_mutexes_;
+
+	static void
+	LockCallback(const CURL*, curl_lock_data data, curl_lock_access access,
+	             void* user_ptr);
+
+	static void UnlockCallback(const CURL*, curl_lock_data data, void* user_ptr);
 };
 }
