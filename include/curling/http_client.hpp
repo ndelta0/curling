@@ -6,6 +6,7 @@
 #include "http_request_message.hpp"
 
 #include "result.hpp"
+#include "cancellation_token.hpp"
 
 #ifdef CURLING_HAS_JSON
 
@@ -19,6 +20,8 @@ public:
 	~HttpClient();
 
 	Result<HttpResponseMessage, Error> Send(const HttpRequestMessage& request);
+
+	Result<HttpResponseMessage, Error> Send(const HttpRequestMessage& request, CancellationToken& token);
 
 	Result<HttpResponseMessage, Error> Get(const Uri& uri);
 

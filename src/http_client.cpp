@@ -1,7 +1,6 @@
 #include "http_client.hpp"
 
 #include <curl/curl.h>
-#include <optional>
 #include <cassert>
 
 #include "version.hpp"
@@ -14,7 +13,12 @@ curling::HttpClient::~HttpClient() {
 	}
 }
 
-curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClient::Send(const curling::HttpRequestMessage& request) {
+curling::Result<curling::HttpResponseMessage, curling::Error>
+curling::HttpClient::Send(const curling::HttpRequestMessage& request) {
+	return Send(request, CancellationToken::None());
+}
+
+curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClient::Send(const curling::HttpRequestMessage& request, CancellationToken& token) {
 	assert(easy_handle_ != nullptr && "HttpClient is not initialized");
 
 	auto tracer = tracing::GetTracer();
@@ -127,6 +131,29 @@ curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClien
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set headers");
+		return Error::kCurlInternalError;
+	}
+
+	result = curl_easy_setopt(easy_handle_, CURLOPT_NOPROGRESS, 0L);
+	if (result != CURLE_OK) {
+		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set progress");
+		return Error::kCurlInternalError;
+	}
+	result = curl_easy_setopt(easy_handle_, CURLOPT_XFERINFOFUNCTION,
+							  +[](void *token_ptr, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+		auto token = static_cast<CancellationToken*>(token_ptr);
+		return token->IsCancelled() ? 1 : 0;
+	});
+	if (result != CURLE_OK) {
+		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set progress function");
+		return Error::kCurlInternalError;
+	}
+	result = curl_easy_setopt(easy_handle_, CURLOPT_XFERINFODATA, &token);
+	if (result != CURLE_OK) {
+		curl_slist_free_all(headers);
+		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set progress data");
 		return Error::kCurlInternalError;
 	}
 

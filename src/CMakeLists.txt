@@ -89,7 +89,7 @@ configure_file("${curling_SOURCE_DIR}/include/generated/version.hpp.in" "${curli
 
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS "${curling_SOURCE_DIR}/include/*.hpp" "${curling_BINARY_DIR}/include/*.hpp")
 
-set(SOURCE_LIST http_factory.cpp http_client.cpp uri.cpp context.cpp http_response_message.cpp http_headers.cpp http_request_headers.cpp http_response_headers.cpp http_content.cpp utils.cpp utils.hpp http_request_message.cpp tracing.cpp tracing.hpp)
+set(SOURCE_LIST http_factory.cpp http_client.cpp uri.cpp context.cpp http_response_message.cpp http_headers.cpp http_request_headers.cpp http_response_headers.cpp http_content.cpp utils.cpp utils.hpp http_request_message.cpp tracing.cpp tracing.hpp cancellation_token.cpp)
 
 add_library(curling STATIC ${HEADER_LIST} ${SOURCE_LIST})
 
