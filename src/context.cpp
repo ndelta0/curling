@@ -20,13 +20,13 @@ curling::Context::~Context() {
 	}
 }
 
-std::shared_ptr<HttpFactory>
+Result<std::shared_ptr<HttpFactory>, Error>
 curling::Context::CreateFactory() { // NOLINT(readability-convert-member-functions-to-static)
 	CURLSH* share_handle = nullptr;
 	try {
 		share_handle = curl_share_init();
 		if (share_handle == nullptr) {
-			return nullptr;
+			return Error::kCurlInternalError;
 		}
 
 		auto* factory = new HttpFactory(share_handle);
@@ -35,16 +35,16 @@ curling::Context::CreateFactory() { // NOLINT(readability-convert-member-functio
 		if (share_handle != nullptr) {
 			curl_share_cleanup(share_handle);
 		}
-		return nullptr;
+		return Error::kCannotCreateFactory;
 	}
 }
 
-std::unique_ptr<HttpClient> Context::CreateClient() { // NOLINT(readability-convert-member-functions-to-static)
+Result<std::unique_ptr<HttpClient>, Error> Context::CreateClient() { // NOLINT(readability-convert-member-functions-to-static)
 	CURL* easy_handle = nullptr;
 	try {
 		easy_handle = curl_easy_init();
 		if (easy_handle == nullptr) {
-			return nullptr;
+			return Error::kCannotCreateClient;
 		}
 
 		auto* client = new HttpClient(easy_handle);
@@ -53,20 +53,21 @@ std::unique_ptr<HttpClient> Context::CreateClient() { // NOLINT(readability-conv
 		if (easy_handle != nullptr) {
 			curl_easy_cleanup(easy_handle);
 		}
-		return nullptr;
+		return Error::kCannotCreateClient;
 	}
 }
 
-std::unique_ptr<HttpClient> Context::CreateClient(const Uri& base_uri) {
+Result<std::unique_ptr<HttpClient>, Error> Context::CreateClient(const Uri& base_uri) {
 	if (base_uri.IsRelative()) {
-		return nullptr;
+		return Error::kUriIsRelative;
 	}
 
-	auto client = CreateClient();
-	if (client == nullptr) {
-		return nullptr;
+	auto result = CreateClient();
+	if (!result) {
+		return *result.Error();
 	}
 
-	client->base_uri_ = base_uri;
-	return client;
+	result.Unwrap()->base_uri_ = base_uri;
+
+	return result;
 }

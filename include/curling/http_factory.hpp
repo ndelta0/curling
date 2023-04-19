@@ -8,14 +8,16 @@
 #include "http_client.hpp"
 #include "uri.hpp"
 
+#include "result.hpp"
+
 namespace curling {
 class HttpFactory {
 public:
 	~HttpFactory();
 
-	std::unique_ptr<HttpClient> CreateClient();
+	Result<std::unique_ptr<HttpClient>, Error> CreateClient();
 
-	std::unique_ptr<HttpClient> CreateClient(const Uri& base_uri);
+	Result<std::unique_ptr<HttpClient>, Error> CreateClient(const Uri& base_uri);
 
 private:
 	friend class Context;

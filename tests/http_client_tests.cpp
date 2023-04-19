@@ -4,13 +4,22 @@
 #include <curling/context.hpp>
 
 TEST_CASE("HttpClient can GET https://www.example.com/", "[http_client][get]") {
-		curling::Context context;
+	curling::Context context;
 
-		auto factory	= context.CreateFactory();
+	auto factory_result = context.CreateFactory();
+	if (!factory_result) {
+		FAIL("Failed to create factory");
+	}
+	auto factory = *factory_result;
 
-		auto client = factory->CreateClient();
-		auto result = client->GetString(curling::Uri("https://www.example.com/"));
+	auto client_result = factory->CreateClient();
+	if (!client_result) {
+		FAIL("Failed to create client");
+	}
+	auto client = std::move(client_result.Unwrap());
 
-		assert(result.has_value());
-		assert(result.value().find("<!doctype html>") != std::string::npos);
+	auto result = client->GetString(curling::Uri("https://www.example.com/"));
+
+	assert(result);
+	assert(result.Unwrap().find("<!doctype html>") != std::string::npos);
 }

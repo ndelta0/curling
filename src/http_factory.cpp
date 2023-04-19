@@ -87,34 +87,34 @@ curling::HttpFactory::~HttpFactory() {
 	}
 }
 
-std::unique_ptr<curling::HttpClient> curling::HttpFactory::CreateClient() {
+curling::Result<std::unique_ptr<curling::HttpClient>, curling::Error> curling::HttpFactory::CreateClient() {
 	CURL* easy_handle = curl_easy_init();
 	if (!easy_handle) {
-		return nullptr;
+		return Error::kCurlInternalError;
 	}
 
 	auto result = curl_easy_setopt(easy_handle, CURLOPT_SHARE, share_handle_);
 	if (result != CURLE_OK) {
 		curl_easy_cleanup(easy_handle);
-		return nullptr;
+		return Error::kCurlInternalError;
 	}
 
 	auto client = new HttpClient(easy_handle);
 	return std::unique_ptr<HttpClient>(client);
 }
 
-std::unique_ptr<curling::HttpClient>
+curling::Result<std::unique_ptr<curling::HttpClient>, curling::Error>
 curling::HttpFactory::CreateClient(const curling::Uri& base_uri) {
 	if (base_uri.IsRelative()) {
-		throw std::invalid_argument("Base URI must be absolute");
+		return Error::kUriIsRelative;
 	}
 
-	auto client = CreateClient();
-	if (!client) {
-		return nullptr;
+	auto result = CreateClient();
+	if (!result) {
+		return *result.Error();
 	}
 
-	client->base_uri_ = base_uri;
+	result.Unwrap()->base_uri_ = base_uri;
 
-	return client;
+	return result;
 }

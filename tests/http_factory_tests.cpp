@@ -3,25 +3,29 @@
 #include <curling/context.hpp>
 
 TEST_CASE("HttpFactory can be constructed", "[http_factory]") {
-		curling::Context context;
-		auto factory = context.CreateFactory();
+	curling::Context context;
+	auto factory = context.CreateFactory();
 
-		assert(factory != nullptr);
+	assert(factory.IsOk());
 }
 
 TEST_CASE("HttpFactory can create clients", "[http_factory]") {
-		curling::Context context;
-		auto factory = context.CreateFactory();
+	curling::Context context;
+	auto factory_result = context.CreateFactory();
+	if (!factory_result) {
+		FAIL("Failed to create factory");
+	}
+	auto factory = *factory_result;
 
-		auto client = factory->CreateClient();
+	auto client = factory->CreateClient();
 
-		assert(client != nullptr);
+	assert(client.IsOk());
 }
 
 TEST_CASE("Context can create clients", "[context]") {
-		curling::Context context;
+	curling::Context context;
 
-		auto client = context.CreateClient();
+	auto client = context.CreateClient();
 
-		assert(client != nullptr);
+	assert(client.IsOk());
 }

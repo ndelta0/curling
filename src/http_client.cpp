@@ -14,7 +14,7 @@ curling::HttpClient::~HttpClient() {
 	}
 }
 
-curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpRequestMessage& request) {
+curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClient::Send(const curling::HttpRequestMessage& request) {
 	assert(easy_handle_ != nullptr && "HttpClient is not initialized");
 
 	auto tracer = tracing::GetTracer();
@@ -22,13 +22,10 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	[[maybe_unused]] auto scope = tracer->WithActiveSpan(span);
 
 	Uri target;
-	if (base_uri_ && !request.uri.IsRelative()) {
-		span->SetStatus(opentelemetry::trace::StatusCode::kError, "URI must be relative");
-		throw std::invalid_argument("URI must be relative");
-	} else if (!base_uri_ && request.uri.IsRelative()) {
+	if (!base_uri_ && !request.uri.IsAbsolute()) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "URI must be absolute");
-		throw std::invalid_argument("URI must be absolute");
-	} else if (base_uri_) {
+		return Error::kUriMustBeAbsolute;
+	} else if (base_uri_ && request.uri.IsRelative()) {
 		target = *base_uri_ + request.uri;
 	} else {
 		target = request.uri;
@@ -42,26 +39,26 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	auto result = curl_easy_setopt(easy_handle_, CURLOPT_URL, target_str.c_str());
 	if (result != CURLE_OK) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set URL");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_CUSTOMREQUEST, request.method.c_str());
 	if (result != CURLE_OK) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set method");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	if (request.headers.HasHeader("User-Agent")) {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_USERAGENT, (*request.headers.GetHeader("User-Agent")).c_str());
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set user agent");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	} else {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_USERAGENT, "curling/" CURLING_VERSION);
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set user agent");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	}
 
@@ -73,18 +70,18 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDSIZE, content_length);
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content length");
-			return {};
+			return Error::kCurlInternalError;
 		}
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDS, content.data());
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	} else {
 		result = curl_easy_setopt(easy_handle_, CURLOPT_POSTFIELDSIZE, 0);
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set content length");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	}
 
@@ -92,14 +89,14 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 		result = curl_easy_setopt(easy_handle_, CURLOPT_FORBID_REUSE, 1L);
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set connection");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	} else {
 		const_cast<HttpRequestHeaders*>(&request.headers)->SetHeader("Connection", "keep-alive");
 		result = curl_easy_setopt(easy_handle_, CURLOPT_FORBID_REUSE, 0L);
 		if (result != CURLE_OK) {
 			span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set connection");
-			return {};
+			return Error::kCurlInternalError;
 		}
 	}
 
@@ -122,7 +119,7 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set headers");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	std::vector<unsigned char> response_body;
@@ -137,14 +134,14 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set write function");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_WRITEDATA, &response_body);
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set write data");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	HttpResponseHeaders response_headers;
@@ -165,28 +162,28 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set header function");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	result = curl_easy_setopt(easy_handle_, CURLOPT_HEADERDATA, &response_headers);
 	if (result != CURLE_OK) {
 		curl_slist_free_all(headers);
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to set header data");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	result = curl_easy_perform(easy_handle_);
 	curl_slist_free_all(headers);
 	if (result != CURLE_OK) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to perform request");
-		return {};
+		return Error::kCurlRequestFailed;
 	}
 
 	long response_code = 0;
 	result = curl_easy_getinfo(easy_handle_, CURLINFO_RESPONSE_CODE, &response_code);
 	if (result != CURLE_OK) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to get response code");
-		return {};
+		return Error::kCurlInternalError;
 	}
 
 	span->SetAttribute("http.status_code", std::to_string(response_code));
@@ -202,39 +199,39 @@ curling::HttpResponseMessage curling::HttpClient::Send(const curling::HttpReques
 	return response;
 }
 
-std::optional<std::string> curling::HttpClient::GetString(const curling::Uri& uri) {
+curling::Result<std::string, curling::Error> curling::HttpClient::GetString(const curling::Uri& uri) {
 	auto response = Get(uri);
 	if (response) {
-		return response.GetContent().ReadAsString().GetContent();
+		return response->GetContent().ReadAsString().GetContent();
 	}
-	return std::nullopt;
+	return *response.Error();
 }
 
-std::optional<std::string> curling::HttpClient::GetString(const std::string& uri) {
+curling::Result<std::string, curling::Error> curling::HttpClient::GetString(const std::string& uri) {
 	return GetString(Uri(uri));
 }
 
-curling::HttpResponseMessage curling::HttpClient::Get(const curling::Uri& uri) {
+curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClient::Get(const curling::Uri& uri) {
 	HttpRequestMessage request(HttpMethod::kGet, uri);
 	return Send(request);
 }
 
-curling::HttpResponseMessage curling::HttpClient::Get(const std::string& uri) {
+curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClient::Get(const std::string& uri) {
 	return Get(Uri(uri));
 }
 
 #ifdef CURLING_HAS_JSON
 
-nlohmann::json curling::HttpClient::GetJson(const curling::Uri& uri) {
+curling::Result<nlohmann::json, curling::Error> curling::HttpClient::GetJson(const curling::Uri& uri) {
 	HttpRequestMessage request(HttpMethod::kGet, uri);
 	auto response = Send(request);
 	if (!response) {
-		return nullptr;
+		return *response.Error();
 	}
-	return response.GetContent().ReadAsJson().GetContent();
+	return response->GetContent().ReadAsJson().GetContent();
 }
 
-nlohmann::json curling::HttpClient::GetJson(const std::string& uri) {
+curling::Result<nlohmann::json, curling::Error> curling::HttpClient::GetJson(const std::string& uri) {
 	return GetJson(Uri(uri));
 }
 

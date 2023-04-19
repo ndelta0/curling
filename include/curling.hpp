@@ -7,3 +7,5 @@
 #include "curling/http_response_headers.hpp"
 #include "curling/http_content.hpp"
 #include "curling/http_request_headers.hpp"
+#include "curling/result.hpp"
+#include "curling/error.hpp"

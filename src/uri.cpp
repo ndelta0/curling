@@ -111,8 +111,7 @@ bool curling::Uri::IsRelative() const {
 }
 
 bool curling::Uri::IsAbsolute() const {
-	return !scheme.empty() && !host.empty() && (!username.empty() ||
-	                                            (username.empty() && !password.empty()));
+	return !scheme.empty() && !host.empty();
 }
 
 curling::Uri curling::Uri::operator+(const curling::Uri& other) const {

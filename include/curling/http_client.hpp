@@ -4,7 +4,8 @@
 #include "uri.hpp"
 #include "http_response_message.hpp"
 #include "http_request_message.hpp"
-#include <optional>
+
+#include "result.hpp"
 
 #ifdef CURLING_HAS_JSON
 
@@ -17,21 +18,21 @@ class HttpClient {
 public:
 	~HttpClient();
 
-	HttpResponseMessage Send(const HttpRequestMessage& request);
+	Result<HttpResponseMessage, Error> Send(const HttpRequestMessage& request);
 
-	HttpResponseMessage Get(const Uri& uri);
+	Result<HttpResponseMessage, Error> Get(const Uri& uri);
 
-	HttpResponseMessage Get(const std::string& uri);
+	Result<HttpResponseMessage, Error> Get(const std::string& uri);
 
-	std::optional<std::string> GetString(const Uri& uri);
+	Result<std::string, Error> GetString(const Uri& uri);
 
-	std::optional<std::string> GetString(const std::string& uri);
+	Result<std::string, Error> GetString(const std::string& uri);
 
 #ifdef CURLING_HAS_JSON
 
-	nlohmann::json GetJson(const Uri& uri);
+	Result<nlohmann::json, Error> GetJson(const Uri& uri);
 
-	nlohmann::json GetJson(const std::string& uri);
+	Result<nlohmann::json, Error> GetJson(const std::string& uri);
 
 #endif
 

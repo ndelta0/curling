@@ -4,6 +4,8 @@
 
 #include "http_factory.hpp"
 
+#include "result.hpp"
+
 namespace curling {
 class Context {
 public:
@@ -19,11 +21,11 @@ public:
 
 	Context& operator=(Context&&) = delete;
 
-	std::shared_ptr<HttpFactory> CreateFactory();
+	Result<std::shared_ptr<HttpFactory>, Error> CreateFactory();
 
-	std::unique_ptr<HttpClient> CreateClient();
+	Result<std::unique_ptr<HttpClient>, Error> CreateClient();
 
-	std::unique_ptr<HttpClient> CreateClient(const Uri& base_uri);
+	Result<std::unique_ptr<HttpClient>, Error> CreateClient(const Uri& base_uri);
 
 private:
 	bool manages_curl_;
