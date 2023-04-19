@@ -1,9 +1,30 @@
-include(CMakeFindDependencyMacro)
+set(curling_VERSION "@curling_VERSION@" CACHE STRING "Version of curling" FORCE)
+set(curling_TRACING_ENABLED "@CURLING_ENABLE_TRACING@" CACHE STRING "Whether curling was built with tracing support" FORCE)
 
-find_dependency(CURL REQUIRED)
+@PACKAGE_INIT@
 
-if(@CURLING_ENABLE_JSON@)
-    find_dependency(nlohmann_json REQUIRED)
+if(NOT TARGET curling::curling)
+    include("${CMAKE_CURRENT_LIST_DIR}/curlingTargets.cmake")
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/curlingConfigVersion.cmake")
+set_and_check(curling_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set_and_check(curling_LIBRARY_DIR "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+set(curling_LIBRARIES "curling::curling")
+
+find_package(CURL COMPONENTS "@CURL_COMPONENTS@")
+
+if(@CURLING_ENABLE_JSON@)
+    find_package(nlohmann_json)
+endif()
+
+if(@CURLING_ENABLE_TRACING@)
+    find_package(opentelemetry-cpp COMPONENTS api)
+endif()
+
+check_required_components(curling)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(
+    ${CMAKE_FIND_PACKAGE_NAME}
+    FOUND_VAR ${CMAKE_FIND_PACKAGE_NAME}_FOUND
+    REQUIRED_VARS curling_INCLUDE_DIR curling_LIBRARY_DIR)

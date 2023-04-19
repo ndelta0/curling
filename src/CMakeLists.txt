@@ -19,63 +19,43 @@ endif()
 
 if(CURLING_ENABLE_HTTPS)
 	list(APPEND CURL_COMPONENTS HTTPS SSL)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS HTTPS SSL)
 endif()
 if(CURLING_ENABLE_HTTP2)
 	list(APPEND CURL_COMPONENTS HTTP2)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS HTTP2)
 endif()
 if(CURLING_ENABLE_HTTP3)
 	list(APPEND CURL_COMPONENTS HTTP3)
 endif()
 if(CURLING_ENABLE_IPV6)
 	list(APPEND CURL_COMPONENTS IPv6)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS IPv6)
 endif()
 if(CURLING_ENABLE_LIBZ)
 	list(APPEND CURL_COMPONENTS libz)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS libz)
 endif()
 if(CURLING_ENABLE_BROTLI)
 	list(APPEND CURL_COMPONENTS brotli)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS brotli)
 endif()
 if(CURLING_ENABLE_ZSTD)
 	list(APPEND CURL_COMPONENTS zstd)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS zstd)
 endif()
 if(CURLING_ENABLE_ASYNC_DNS)
 	list(APPEND CURL_COMPONENTS AsynchDNS)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS AsynchDNS)
 endif()
 if(CURLING_ENABLE_LARGE_FILE)
 	list(APPEND CURL_COMPONENTS Largefile)
-else()
-	list(APPEND CURL_OPTIONAL_COMPONENTS Largefile)
 endif()
 if(WIN32)
 	if(CURLING_ENABLE_UNICODE)
 		list(APPEND CURL_COMPONENTS Unicode)
-	else()
-		list(APPEND CURL_OPTIONAL_COMPONENTS Unicode)
 	endif()
 elseif(UNIX)
 	if(CURLING_ENABLE_UNIX_SOCKETS)
 		list(APPEND CURL_COMPONENTS UnixSockets)
-	else()
-		list(APPEND CURL_OPTIONAL_COMPONENTS UnixSockets)
 	endif()
 endif()
 
 include(FindCURL)
-find_package(CURL 7 COMPONENTS "${CURL_COMPONENTS}" OPTIONAL_COMPONENTS "${CURL_OPTIONAL_COMPONENTS}")
+find_package(CURL 7 COMPONENTS "${CURL_COMPONENTS}")
 if(NOT CURL_FOUND)
 	# List components that were not found
 	set(CURL_MISSING_COMPONENTS)
@@ -91,11 +71,6 @@ endif()
 set(COMPILE_DEFS)
 foreach(CURL_COMPONENT ${CURL_COMPONENTS})
 	list(APPEND COMPILE_DEFS CURLING_HAS_${CURL_COMPONENT})
-endforeach()
-foreach(CURL_OPTIONAL_COMPONENT ${CURL_OPTIONAL_COMPONENTS})
-	if(CURL_${CURL_OPTIONAL_COMPONENT}_FOUND)
-		list(APPEND COMPILE_DEFS CURLING_HAS_${CURL_OPTIONAL_COMPONENT})
-	endif()
 endforeach()
 
 option(CURLING_ENABLE_JSON "Enable JSON support" ON)
@@ -120,8 +95,11 @@ add_library(curling STATIC ${HEADER_LIST} ${SOURCE_LIST})
 
 target_compile_definitions(curling PUBLIC ${COMPILE_DEFS})
 
-target_include_directories(curling INTERFACE ${curling_SOURCE_DIR}/include ${curling_BINARY_DIR}/include)
-target_include_directories(curling PRIVATE ${curling_SOURCE_DIR}/include/curling ${curling_BINARY_DIR}/include/curling)
+target_include_directories(curling PUBLIC
+	$<BUILD_INTERFACE:${curling_SOURCE_DIR}/include>
+	$<BUILD_INTERFACE:${curling_BINARY_DIR}/include>
+	$<INSTALL_INTERFACE:include>
+	PRIVATE ${curling_SOURCE_DIR}/include/curling ${curling_BINARY_DIR}/include/curling)
 
 target_compile_features(curling PUBLIC cxx_std_17)
 
@@ -134,6 +112,8 @@ endif()
 if(CURLING_ENABLE_TRACING)
 	target_link_libraries(curling PUBLIC opentelemetry-cpp::api)
 endif()
+
+add_library(curling::curling ALIAS curling)
 
 include(GNUInstallDirs)
 
@@ -148,14 +128,19 @@ install(FILES "${curling_SOURCE_DIR}/include/curling.hpp" DESTINATION ${CMAKE_IN
 install(DIRECTORY "${curling_SOURCE_DIR}/include/curling" "${curling_BINARY_DIR}/include/curling" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 include(CMakePackageConfigHelpers)
+configure_package_config_file(${curling_SOURCE_DIR}/cmake/curlingConfig.cmake.in
+		${curling_BINARY_DIR}/curlingConfig.cmake
+		INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/curling
+		PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
 write_basic_package_version_file(
 	"${curling_BINARY_DIR}/curlingConfigVersion.cmake"
 	VERSION ${PROJECT_VERSION}
 	COMPATIBILITY SameMajorVersion)
-
-configure_file("${curling_SOURCE_DIR}/cmake/curlingConfig.cmake.in" "${curling_BINARY_DIR}/curlingConfig.cmake" @ONLY)
-
 install(FILES
 	"${curling_BINARY_DIR}/curlingConfig.cmake"
 	"${curling_BINARY_DIR}/curlingConfigVersion.cmake"
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/curling)
+
+install(EXPORT curlingTargets
+		NAMESPACE curling::
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/curling)
