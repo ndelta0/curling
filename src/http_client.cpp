@@ -176,7 +176,58 @@ curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClien
 	curl_slist_free_all(headers);
 	if (result != CURLE_OK) {
 		span->SetStatus(opentelemetry::trace::StatusCode::kError, "Failed to perform request");
-		return Error::kCurlRequestFailed;
+
+		switch (result) {
+			case CURLE_COULDNT_RESOLVE_PROXY:
+			case CURLE_COULDNT_RESOLVE_HOST:
+				span->SetAttribute("curl.error", "Could not resolve host");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kCouldNotResolveHost;
+			case CURLE_COULDNT_CONNECT:
+				span->SetAttribute("curl.error", "Could not connect");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kCouldNotConnect;
+			case CURLE_UNSUPPORTED_PROTOCOL:
+			case CURLE_URL_MALFORMAT:
+			case CURLE_HTTP_RETURNED_ERROR:
+			case CURLE_OPERATION_TIMEDOUT:
+			case CURLE_RANGE_ERROR:
+			case CURLE_HTTP_POST_ERROR:
+			case CURLE_TOO_MANY_REDIRECTS:
+				span->SetAttribute("curl.error", "HTTP error");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kHttpError;
+			case CURLE_ABORTED_BY_CALLBACK:
+				span->SetAttribute("curl.error", "Aborted");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kAborted;
+			case CURLE_SSL_ENGINE_NOTFOUND:
+			case CURLE_SSL_ENGINE_SETFAILED:
+			case CURLE_SSL_CERTPROBLEM:
+			case CURLE_SSL_CIPHER:
+			case CURLE_USE_SSL_FAILED:
+			case CURLE_SSL_ENGINE_INITFAILED:
+			case CURLE_SSL_CACERT_BADFILE:
+			case CURLE_SSL_SHUTDOWN_FAILED:
+			case CURLE_SSL_CRL_BADFILE:
+			case CURLE_SSL_ISSUER_ERROR:
+			case CURLE_SSL_PINNEDPUBKEYNOTMATCH:
+			case CURLE_SSL_INVALIDCERTSTATUS:
+			case CURLE_SSL_CLIENTCERT:
+				span->SetAttribute("curl.error", "SSL error");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kCurlSslError;
+			default:
+				span->SetAttribute("curl.error", "Unknown error");
+				span->SetAttribute("curl.error_details", curl_easy_strerror(result));
+				span->SetAttribute("curl.error_code", std::to_string(result));
+				return Error::kCurlRequestFailed;
+		}
 	}
 
 	long response_code = 0;
