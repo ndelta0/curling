@@ -101,6 +101,14 @@ curling::Result<curling::HttpResponseMessage, curling::Error> curling::HttpClien
 	}
 
 	curl_slist* headers = nullptr;
+	for (const auto& [key, value]: default_headers_.GetHeaders()) {
+		if (key == "User-Agent" || key == "Content-Type" || key == "Content-Length") {
+			continue;
+		}
+		auto header = key;
+		header += ": " + value;
+		headers = curl_slist_append(headers, header.c_str());
+	}
 	for (const auto& [key, value]: request.headers.GetHeaders()) {
 		if (key == "User-Agent" || key == "Content-Type" || key == "Content-Length") {
 			continue;

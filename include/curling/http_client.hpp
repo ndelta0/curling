@@ -36,6 +36,10 @@ public:
 
 #endif
 
+	[[nodiscard]] HttpRequestHeaders& DefaultHeaders() {
+		return default_headers_;
+	}
+
 private:
 	friend class HttpFactory;
 
@@ -51,5 +55,7 @@ private:
 	CURL* easy_handle_;
 
 	std::optional<Uri> base_uri_;
+
+	HttpRequestHeaders default_headers_;
 };
 }
